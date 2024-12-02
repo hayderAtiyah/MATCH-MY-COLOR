@@ -13,6 +13,20 @@
         android:theme="@style/Theme.MatchMyColor"
         tools:targetApi="31">
         <activity
+            android:name=".gameInstrucActivity"
+            android:exported="false" />
+        <activity
+            android:name=".enterActivity"
+            android:exported="false" />
+        <activity
+            android:name=".createActivity"
+            android:exported="false" />
+        <activity
+            android:name=".createGameActivity"
+            android:exported="false"
+            android:label="@string/title_activity_create_game"
+            android:theme="@style/Theme.MatchMyColor" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

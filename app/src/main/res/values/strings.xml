@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">matchMyColor</string>
+    <string name="title_activity_create_game">createGameActivity</string>
 </resources>

@@ -10,35 +10,29 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-public class MainActivity extends AppCompatActivity {
+public class enterActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_enter);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
     }
 
 
-    public void createGameOnClick(View view) {
-        Intent intent = new Intent(MainActivity.this,createActivity.class);
+    public void enterOnClick(View view) {
+
+    }
+
+    public void backOnClick(View view) {
+        Intent intent = new Intent(enterActivity.this,MainActivity.class);
         startActivity(intent);
     }
-
-    public void enterGameOnClick(View view) {
-        Intent intent = new Intent(MainActivity.this,enterActivity.class);
-        startActivity(intent);
-    }
-
-    public void gameInstrucOnClick(View view) {
-        Intent intent = new Intent(MainActivity.this,gameInstrucActivity.class);
-        startActivity(intent);
-    }
-
 
 }
