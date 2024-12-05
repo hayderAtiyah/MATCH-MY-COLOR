@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".gameActivity">
+
+    <TextView
+        android:id="@+id/player1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Player 1:"
+        android:textSize="12pt"
+        android:layout_margin="8dp"
+        android:textColor="@color/blue"/>
+
+    <TextView
+        android:id="@+id/player1_score"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:layout_below="@+id/player1"
+        android:textSize="12pt"
+        android:layout_margin="8dp"
+        android:textColor="@color/blue"/>
+
+    <TextView
+        android:id="@+id/player1_turn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="◄"
+        android:layout_toRightOf="@+id/player1"
+        android:layout_alignParentTop="true"
+        android:textSize="17pt"
+        android:textColor="@color/green"/>
+
+    <TextView
+        android:id="@+id/player2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Player 2:"
+        android:layout_alignParentRight="true"
+        android:textSize="12pt"
+        android:layout_margin="8dp"
+        android:textColor="@color/red"/>
+
+    <TextView
+        android:id="@+id/player2_score"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:layout_below="@+id/player2"
+        android:layout_alignParentRight="true"
+        android:textSize="12pt"
+        android:layout_margin="8dp"
+        android:textColor="@color/red"/>
+
+    <TextView
+        android:id="@+id/player2_turn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="►"
+        android:layout_toLeftOf="@+id/player2"
+        android:layout_alignParentTop="true"
+        android:textSize="17pt"
+        android:textColor="@color/green"/>
+
+    <ImageView
+        android:id="@+id/image1"
+        android:layout_width="match_parent"
+        android:layout_height="280dp"
+        android:src="@drawable/ic_launcher_foreground"
+        android:layout_margin="12dp"
+        android:layout_below="@id/player1_score"/>
+
+    <ImageView
+        android:id="@+id/image2"
+        android:layout_width="match_parent"
+        android:layout_height="280dp"
+        android:src="@drawable/ic_launcher_foreground"
+        android:layout_margin="12dp"
+        android:layout_below="@id/image1"/>
+
+    <Button
+        android:id="@+id/cam_button"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:onClick="cameraButton"
+        android:layout_margin="12dp"
+        android:layout_alignParentBottom="true"
+        android:text="Take a Picture!"
+        android:backgroundTint="@color/green"/>
+
+</RelativeLayout>

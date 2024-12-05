@@ -27,7 +27,9 @@ public class enterActivity extends AppCompatActivity {
 
 
     public void enterOnClick(View view) {
-
+        // TODO: Connect both players
+        Intent intent = new Intent(enterActivity.this, gameActivity.class);
+        startActivity(intent);
     }
 
     public void backOnClick(View view) {
