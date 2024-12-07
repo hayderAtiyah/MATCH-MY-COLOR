@@ -70,18 +70,27 @@
     <ImageView
         android:id="@+id/image1"
         android:layout_width="match_parent"
-        android:layout_height="280dp"
-        android:src="@drawable/ic_launcher_foreground"
+        android:layout_height="225dp"
+        android:src="@drawable/camera_icon"
         android:layout_margin="12dp"
         android:layout_below="@id/player1_score"/>
 
     <ImageView
         android:id="@+id/image2"
         android:layout_width="match_parent"
-        android:layout_height="280dp"
-        android:src="@drawable/ic_launcher_foreground"
+        android:layout_height="225dp"
+        android:src="@drawable/camera_icon"
         android:layout_margin="12dp"
         android:layout_below="@id/image1"/>
+
+    <TextView
+        android:id="@+id/points"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/image2"
+        android:layout_centerHorizontal="true"
+        android:text=""
+        android:textSize="17pt"/>
 
     <Button
         android:id="@+id/cam_button"

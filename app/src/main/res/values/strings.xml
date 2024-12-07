@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name">matchMyColor</string>
     <string name="title_activity_create_game">createGameActivity</string>
+    <string name="game_instructions">The player who creates the game will be player 1 and the player who joins the game will be player 2.
+        \n\nFirst, a player will be chosen at random to start. The green arrow will indicate which player\'s turn it is.\n\nThe first player will
+        take a picture using the \"Take a Picture!\" button. The next player will then take their picture, trying to match the first picture\'s
+        color to the best of their ability. The closer you match the color, the more points you will be awarded!\n\nThe player that ended the
+        previous round will then take the first picture on the second round, and both players will continue to take turns taking the first picture
+        and matching with the second. The game ends after each player has gone first 3 times.\n\nThe player with the most points at the end of the game wins!</string>
 </resources>

@@ -2,6 +2,7 @@ package cs477.gmu.matchmycolor;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -17,6 +18,7 @@ import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -31,10 +33,14 @@ public class gameActivity extends AppCompatActivity {
     private TextView player2Score;
     private TextView player1Turn;
     private TextView player2Turn;
+    private TextView points;
     private ImageView image1;
     private ImageView image2;
     private Bitmap image1Bp;
     private Bitmap image2Bp;
+
+    private int rounds = 3;
+    private int currRound;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,8 +63,10 @@ public class gameActivity extends AppCompatActivity {
         player2Score = findViewById(R.id.player2_score);
         player1Turn = findViewById(R.id.player1_turn);
         player2Turn = findViewById(R.id.player2_turn);
+        points = findViewById(R.id.points);
         image1 = findViewById(R.id.image1);
         image2 = findViewById(R.id.image2);
+        currRound = 0;
 
         // Set player pointer
         if (playerTurn == 1) {
@@ -95,30 +103,38 @@ public class gameActivity extends AppCompatActivity {
                         if (playerTurn == 1) {
                             if (imageTurn == 1) {
                                 image1.setImageBitmap(bp);
+                                image2.setImageDrawable(getDrawable(R.drawable.camera_icon));
                                 image1Bp = bp;
                                 imageTurn = 2;
                                 playerTurn = 2;
                                 player1Turn.setVisibility(View.INVISIBLE);
                                 player2Turn.setVisibility(View.VISIBLE);
+                                points.setVisibility(View.INVISIBLE);
                             } else {
                                 image2.setImageBitmap(bp);
                                 image2Bp = bp;
                                 imageTurn = 1;
+                                points.setTextColor(getColor(R.color.blue));
                                 calculatePoints();
+                                checkGameOver();
                             }
                         } else {
                             if (imageTurn == 1) {
                                 image1.setImageBitmap(bp);
+                                image2.setImageDrawable(getDrawable(R.drawable.camera_icon));
                                 image1Bp = bp;
                                 imageTurn = 2;
                                 playerTurn = 1;
                                 player1Turn.setVisibility(View.VISIBLE);
                                 player2Turn.setVisibility(View.INVISIBLE);
+                                points.setVisibility(View.INVISIBLE);
                             } else {
                                 image2.setImageBitmap(bp);
                                 image2Bp = bp;
                                 imageTurn = 1;
+                                points.setTextColor(getColor(R.color.red));
                                 calculatePoints();
+                                checkGameOver();
                             }
                         }
 
@@ -145,13 +161,45 @@ public class gameActivity extends AppCompatActivity {
         int gChange = g1 - g2;
         int bChange = b1 - b2;
 
-        double colorChange = Math.sqrt((2 + (rBar/256)) * (rChange * rChange) + 4 * (gChange * gChange) + (2 + ((255 - rBar)/256)) * (bChange * bChange));
-        //TODO: Subtract by max possible value to get score and round
+        double colorChange = Math.sqrt((2 + (rBar/256)) * (rChange * rChange) + 4 * (gChange * gChange) + (2 + ((255 - rBar)/256)) * (bChange * bChange)); //redmean color difference equation
+        int colorChangeInt = (int)Math.round(764.833966357 - colorChange);
         if (playerTurn == 1) {
-            player1Score.setText("" + (Double.parseDouble(player1Score.getText().toString()) + colorChange));
+            player1Score.setText("" + (Integer.parseInt(player1Score.getText().toString()) + colorChangeInt));
         } else {
-            player2Score.setText("" + (Double.parseDouble(player2Score.getText().toString()) + colorChange));
+            player2Score.setText("" + (Integer.parseInt(player2Score.getText().toString()) + colorChangeInt));
         }
 
+        //Show points earned
+        points.setVisibility(View.VISIBLE);
+        points.setText("+" + colorChangeInt);
+
+    }
+
+    public void checkGameOver() {
+        currRound++;
+        if (rounds*2 == currRound) {
+            String message;
+            if (Integer.parseInt(player1Score.getText().toString()) > Integer.parseInt(player2Score.getText().toString())) {
+                message = "Player 1 wins! Would you like to play again?";
+            } else if (Integer.parseInt(player1Score.getText().toString()) < Integer.parseInt(player2Score.getText().toString())) {
+                message = "Player 2 wins! Would you like to play again?";
+            } else {
+                message = "It's a draw! Would you like to play again?";
+            }
+
+            AlertDialog.Builder dialog = new AlertDialog.Builder(gameActivity.this);
+            dialog.setTitle("Game Over")
+                    .setIcon(R.drawable.ic_launcher_background)
+                    .setMessage(message)
+                    .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialoginterface, int i) {
+                            finish();
+                        }})
+                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialoginterface, int i) {
+                            recreate();
+                        }
+                    }).show();
+        }
     }
 }
