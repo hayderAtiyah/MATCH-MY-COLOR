@@ -24,6 +24,12 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
 import java.util.Random;
 
 public class gameActivity extends AppCompatActivity {
@@ -53,12 +59,8 @@ public class gameActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Randomly pick player that goes first
-        Random rand = new Random();
-        playerTurn = rand.nextInt(2) + 1;
+        String gameId = getIntent().getStringExtra("gameId");
 
-        // Initialize variables
-        imageTurn = 1;
         player1Score = findViewById(R.id.player1_score);
         player2Score = findViewById(R.id.player2_score);
         player1Turn = findViewById(R.id.player1_turn);
@@ -68,7 +70,35 @@ public class gameActivity extends AppCompatActivity {
         image2 = findViewById(R.id.image2);
         currRound = 0;
 
-        // Set player pointer
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference gameRef = database.getReference("games").child(gameId);
+
+        gameRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    String player1 = dataSnapshot.child("player1").getValue(String.class);
+                    String player2 = dataSnapshot.child("player2").getValue(String.class);
+
+                    if (playerTurn == 1) {
+                        player1Turn.setVisibility(View.VISIBLE);
+                        player2Turn.setVisibility(View.INVISIBLE);
+                    } else {
+                        player1Turn.setVisibility(View.INVISIBLE);
+                        player2Turn.setVisibility(View.VISIBLE);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Toast.makeText(gameActivity.this, "Failed to load game data", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        Random rand = new Random();
+        playerTurn = rand.nextInt(2) + 1;
+
         if (playerTurn == 1) {
             player2Turn.setVisibility(View.INVISIBLE);
         } else {
@@ -85,7 +115,6 @@ public class gameActivity extends AppCompatActivity {
 
         } catch (ActivityNotFoundException e) {
             Toast.makeText(getApplicationContext(),"failed",Toast.LENGTH_SHORT).show();
-            // display error state to the user
         }
     }
 
@@ -99,7 +128,11 @@ public class gameActivity extends AppCompatActivity {
                         Intent data = result.getData();
                         Bitmap bp = (Bitmap) data.getExtras().get("data");
 
-                        // Display image on screen and switch player's turn
+                        if (bp == null) {
+                            Toast.makeText(getApplicationContext(), "Game Created! Share the password: " , Toast.LENGTH_LONG).show();
+                            return;
+                        }
+
                         if (playerTurn == 1) {
                             if (imageTurn == 1) {
                                 image1.setImageBitmap(bp);
@@ -137,16 +170,21 @@ public class gameActivity extends AppCompatActivity {
                                 checkGameOver();
                             }
                         }
-
                     } else {
-                        Toast.makeText(getApplicationContext(),"Please take picture.",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Please take picture.", Toast.LENGTH_SHORT).show();
                     }
                 }
+
             });
 
     public void calculatePoints() {
-        int color1 = image1Bp.getPixel(image1Bp.getWidth()/2, image1Bp.getHeight()/2);
-        int color2 = image2Bp.getPixel(image2Bp.getWidth()/2, image2Bp.getHeight()/2);
+        if (image1Bp == null || image2Bp == null) {
+            Toast.makeText(this, "Error: Missing image data. Please ensure both players take their turns.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int color1 = image1Bp.getPixel(image1Bp.getWidth() / 2, image1Bp.getHeight() / 2);
+        int color2 = image2Bp.getPixel(image2Bp.getWidth() / 2, image2Bp.getHeight() / 2);
 
         int r1 = Color.red(color1);
         int g1 = Color.green(color1);
@@ -161,19 +199,27 @@ public class gameActivity extends AppCompatActivity {
         int gChange = g1 - g2;
         int bChange = b1 - b2;
 
-        double colorChange = Math.sqrt((2 + (rBar/256)) * (rChange * rChange) + 4 * (gChange * gChange) + (2 + ((255 - rBar)/256)) * (bChange * bChange)); //redmean color difference equation
-        int colorChangeInt = (int)Math.round(764.833966357 - colorChange);
+        double colorChange = Math.sqrt((2 + (rBar / 256)) * (rChange * rChange) + 4 * (gChange * gChange) +
+                (2 + ((255 - rBar) / 256)) * (bChange * bChange));
+        int colorChangeInt = (int) Math.round(764.833966357 - colorChange);
+
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference gameRef = database.getReference("games").child(getIntent().getStringExtra("gameId"));
+
         if (playerTurn == 1) {
-            player1Score.setText("" + (Integer.parseInt(player1Score.getText().toString()) + colorChangeInt));
+            int newScore = Integer.parseInt(player1Score.getText().toString()) + colorChangeInt;
+            gameRef.child("gameState").child("player1Score").setValue(newScore);
+            player1Score.setText(String.valueOf(newScore));
         } else {
-            player2Score.setText("" + (Integer.parseInt(player2Score.getText().toString()) + colorChangeInt));
+            int newScore = Integer.parseInt(player2Score.getText().toString()) + colorChangeInt;
+            gameRef.child("gameState").child("player2Score").setValue(newScore);
+            player2Score.setText(String.valueOf(newScore));
         }
 
-        //Show points earned
         points.setVisibility(View.VISIBLE);
         points.setText("+" + colorChangeInt);
-
     }
+
 
     public void checkGameOver() {
         currRound++;

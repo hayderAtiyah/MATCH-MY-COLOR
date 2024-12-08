@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "634798718648",
+    "project_id": "color-dbade",
+    "storage_bucket": "color-dbade.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:634798718648:android:c9611ac33979c001627e4d",
+        "android_client_info": {
+          "package_name": "cs477.gmu.matchmycolor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOSeCl8sMRRjMoS-7XR7oirwTkkGNjSeE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

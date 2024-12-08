@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
@@ -14,6 +15,9 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -39,8 +43,34 @@ public class MainActivity extends AppCompatActivity {
                     new String[]{Manifest.permission.CAMERA},
                     MY_PERMISSIONS_REQUEST_CAMERA);
         }
+
+        testFirebaseConnection();
+        readFirebaseData();
+
     }
 
+    public void readFirebaseData() {
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference reference = database.getReference("testConnection");
+
+        reference.get()
+                .addOnSuccessListener(dataSnapshot -> {
+                    String value = dataSnapshot.getValue(String.class);
+                    Log.d("FirebaseTest", "Data retrieved: " + value);
+                })
+                .addOnFailureListener(e -> Log.e("FirebaseTest", "Failed to read data: " + e.getMessage()));
+    }
+
+
+
+    public void testFirebaseConnection() {
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference reference = database.getReference("testConnection");
+
+        reference.setValue("Hello Firebase!")
+                .addOnSuccessListener(aVoid -> Log.d("FirebaseTest", "Connected: Data written successfully!"))
+                .addOnFailureListener(e -> Log.e("FirebaseTest", "Connection failed: " + e.getMessage()));
+    }
 
     public void createGameOnClick(View view) {
         Intent intent = new Intent(MainActivity.this,createActivity.class);
