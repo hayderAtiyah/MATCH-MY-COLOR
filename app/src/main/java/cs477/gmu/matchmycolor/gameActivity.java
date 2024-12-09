@@ -24,6 +24,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import java.util.ArrayList;
 import java.util.Random;
 
 public class gameActivity extends AppCompatActivity {
@@ -145,16 +146,39 @@ public class gameActivity extends AppCompatActivity {
             });
 
     public void calculatePoints() {
-        int color1 = image1Bp.getPixel(image1Bp.getWidth()/2, image1Bp.getHeight()/2);
-        int color2 = image2Bp.getPixel(image2Bp.getWidth()/2, image2Bp.getHeight()/2);
+        int pixelsWidthHeight = 30;
 
-        int r1 = Color.red(color1);
-        int g1 = Color.green(color1);
-        int b1 = Color.blue(color1);
+        // Will store average values for centermost pixels in each picture
+        // Squared sum used for more accurate color average
+        int r1 = 0;
+        int g1 = 0;
+        int b1 = 0;
+        int r2 = 0;
+        int g2 = 0;
+        int b2 = 0;
 
-        int r2 = Color.red(color2);
-        int g2 = Color.green(color2);
-        int b2 = Color.blue(color2);
+        for (int i=-pixelsWidthHeight/2; i<pixelsWidthHeight/2 + 1; i++) {
+            for (int j=-pixelsWidthHeight/2; j<pixelsWidthHeight/2 + 1; j++) {
+                int color1 = image1Bp.getPixel((image1Bp.getWidth() / 2) + i, (image1Bp.getHeight() / 2) + j);
+                int color2 = image2Bp.getPixel((image2Bp.getWidth() / 2) + i, (image2Bp.getHeight() / 2) + j);
+
+                r1 += Color.red(color1) * Color.red(color1);
+                g1 += Color.green(color1) * Color.green(color1);
+                b1 += Color.blue(color1) * Color.blue(color1);
+
+                r2 += Color.red(color2) * Color.red(color2);
+                g2 += Color.green(color2) * Color.green(color2);
+                b2 += Color.blue(color2) * Color.blue(color2);
+            }
+        }
+
+        r1 = (int)Math.round(Math.sqrt(r1/(pixelsWidthHeight*pixelsWidthHeight)));
+        g1 = (int)Math.round(Math.sqrt(g1/(pixelsWidthHeight*pixelsWidthHeight)));
+        b1 = (int)Math.round(Math.sqrt(b1/(pixelsWidthHeight*pixelsWidthHeight)));
+
+        r2 = (int)Math.round(Math.sqrt(r2/(pixelsWidthHeight*pixelsWidthHeight)));
+        g2 = (int)Math.round(Math.sqrt(g2/(pixelsWidthHeight*pixelsWidthHeight)));
+        b2 = (int)Math.round(Math.sqrt(b2/(pixelsWidthHeight*pixelsWidthHeight)));
 
         double rBar = (r1 + r2) / 2.0;
         int rChange = r1 - r2;
