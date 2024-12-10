@@ -29,6 +29,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Random;
 
 public class gameActivity extends AppCompatActivity {
     private int playerRole;
@@ -39,7 +40,7 @@ public class gameActivity extends AppCompatActivity {
     private Bitmap image1Bp, image2Bp;
     private DatabaseReference gameRef;
     private String gameId;
-    private final int maxRounds = 2;
+    private final int maxRounds = 5;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +50,7 @@ public class gameActivity extends AppCompatActivity {
         gameId = getIntent().getStringExtra("gameId");
         gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
 
+        imageTurn = 1;
         player1Score = findViewById(R.id.player1_score);
         player2Score = findViewById(R.id.player2_score);
         player1Turn = findViewById(R.id.player1_turn);
@@ -62,6 +64,12 @@ public class gameActivity extends AppCompatActivity {
         setupImageSyncListeners();
         setupTurnListeners();
         updateTurnUI();
+
+        if(playerRole == 1) {
+            // Randomly pick player that goes first
+            Random rand = new Random();
+            gameRef.child("playerTurn").setValue(rand.nextInt(2) + 1);
+        }
     }
 
     private void assignRole() {
@@ -107,6 +115,9 @@ public class gameActivity extends AppCompatActivity {
                         image1Bp = decodeBase64(image1Data);
                         image1.setImageBitmap(image1Bp);
                         isImage1Ready = true;
+                        imageTurn = 2;
+                        points.setVisibility(View.INVISIBLE);
+                        image2.setImageDrawable(getDrawable(R.drawable.camera_icon));
                     }
 
                     if (snapshot.child("image2").exists() && !snapshot.child("image2").getValue(String.class).isEmpty()) {
@@ -114,6 +125,7 @@ public class gameActivity extends AppCompatActivity {
                         image2Bp = decodeBase64(image2Data);
                         image2.setImageBitmap(image2Bp);
                         isImage2Ready = true;
+                        imageTurn = 1;
                     }
 
                     if (isImage1Ready && isImage2Ready) {
@@ -171,55 +183,77 @@ public class gameActivity extends AppCompatActivity {
                         Bitmap bp = (Bitmap) result.getData().getExtras().get("data");
 
                         if (playerTurn == 1) {
-                            gameRef.child("images").child("image1").setValue(encodeBitmap(bp))
-                                    .addOnSuccessListener(aVoid -> {
-                                        image1Bp = bp;
-                                        image1.setImageBitmap(bp);
-                                        gameRef.child("playerTurn").setValue(2);
-                                    })
-                                    .addOnFailureListener(e ->
-                                            Toast.makeText(gameActivity.this, "Failed to upload Image 1.", Toast.LENGTH_SHORT).show());
-                        } else {
-                            gameRef.child("images").child("image2").setValue(encodeBitmap(bp))
-                                    .addOnSuccessListener(aVoid -> {
-                                        image2Bp = bp;
-                                        image2.setImageBitmap(bp);
+                            if (imageTurn == 1) {
+                                gameRef.child("images").child("image1").setValue(encodeBitmap(bp))
+                                        .addOnSuccessListener(aVoid -> {
+                                            image1Bp = bp;
+                                            image1.setImageBitmap(bp);
+                                            gameRef.child("playerTurn").setValue(2);
+                                        })
+                                        .addOnFailureListener(e ->
+                                                Toast.makeText(gameActivity.this, "Failed to upload Image 1.", Toast.LENGTH_SHORT).show());
 
-                                        gameRef.child("executionCount").addListenerForSingleValueEvent(new ValueEventListener() {
-                                            @Override
-                                            public void onDataChange(DataSnapshot snapshot) {
-                                                int executionCount = snapshot.exists() ? snapshot.getValue(Integer.class) : 0;
+                            } else {
+                                gameRef.child("images").child("image2").setValue(encodeBitmap(bp))
+                                        .addOnSuccessListener(aVoid -> {
+                                            image2Bp = bp;
+                                            image2.setImageBitmap(bp);
 
-                                                if (executionCount < 1) {
-                                                    gameRef.child("executionCount").setValue(executionCount + 1);
-                                                } else {
-                                                    gameRef.child("executionCount").setValue(0);
-                                                    gameRef.child("playerTurn").setValue(1);
+                                            gameRef.child("playerTurn").setValue(1);
+
+                                            gameRef.child("round").addListenerForSingleValueEvent(new ValueEventListener() {
+                                                @Override
+                                                public void onDataChange(DataSnapshot roundSnapshot) {
+                                                    int currentRound = roundSnapshot.exists() ? roundSnapshot.getValue(Integer.class) : 0;
+                                                    gameRef.child("round").setValue(currentRound + 1);
+
                                                 }
 
-                                                gameRef.child("round").addListenerForSingleValueEvent(new ValueEventListener() {
-                                                    @Override
-                                                    public void onDataChange(DataSnapshot roundSnapshot) {
-                                                        int currentRound = roundSnapshot.exists() ? roundSnapshot.getValue(Integer.class) : 0;
-                                                        gameRef.child("round").setValue(currentRound + 1);
+                                                @Override
+                                                public void onCancelled(DatabaseError error) {
+                                                    Toast.makeText(gameActivity.this, "Error updating round.", Toast.LENGTH_SHORT).show();
+                                                }
+                                            });
+                                        })
+                                        .addOnFailureListener(e ->
+                                                Toast.makeText(gameActivity.this, "Failed to upload Image 2.", Toast.LENGTH_SHORT).show());
+                            }
+                        } else {
+                            if (imageTurn == 1) {
+                                gameRef.child("images").child("image1").setValue(encodeBitmap(bp))
+                                        .addOnSuccessListener(aVoid -> {
+                                            image1Bp = bp;
+                                            image1.setImageBitmap(bp);
+                                            gameRef.child("playerTurn").setValue(1);
+                                        })
+                                        .addOnFailureListener(e ->
+                                                Toast.makeText(gameActivity.this, "Failed to upload Image 1.", Toast.LENGTH_SHORT).show());
+                            } else {
+                                gameRef.child("images").child("image2").setValue(encodeBitmap(bp))
+                                        .addOnSuccessListener(aVoid -> {
+                                            image2Bp = bp;
+                                            image2.setImageBitmap(bp);
 
-                                                    }
+                                            gameRef.child("playerTurn").setValue(2);
 
-                                                    @Override
-                                                    public void onCancelled(DatabaseError error) {
-                                                        Toast.makeText(gameActivity.this, "Error updating round.", Toast.LENGTH_SHORT).show();
-                                                    }
-                                                });
-                                            }
+                                            gameRef.child("round").addListenerForSingleValueEvent(new ValueEventListener() {
 
-                                            @Override
-                                            public void onCancelled(DatabaseError error) {
-                                                Toast.makeText(gameActivity.this, "Error reading execution count.", Toast.LENGTH_SHORT).show();
-                                            }
-                                        });
-                                    })
-                                    .addOnFailureListener(e ->
-                                            Toast.makeText(gameActivity.this, "Failed to upload Image 2.", Toast.LENGTH_SHORT).show());
+                                                @Override
+                                                public void onDataChange(DataSnapshot roundSnapshot) {
+                                                    int currentRound = roundSnapshot.exists() ? roundSnapshot.getValue(Integer.class) : 0;
+                                                    gameRef.child("round").setValue(currentRound + 1);
+                                                }
+
+                                                @Override
+                                                public void onCancelled(DatabaseError error) {
+                                                    Toast.makeText(gameActivity.this, "Error updating round.", Toast.LENGTH_SHORT).show();
+                                                }
+                                            });
+
+                                        })
+                                        .addOnFailureListener(e ->
+                                                Toast.makeText(gameActivity.this, "Failed to upload Image 2.", Toast.LENGTH_SHORT).show());
+                            }
                         }
                     } else {
                         Toast.makeText(getApplicationContext(), "No image captured.", Toast.LENGTH_SHORT).show();
@@ -246,28 +280,57 @@ public class gameActivity extends AppCompatActivity {
             return;
         }
 
-        int color1 = image1Bp.getPixel(image1Bp.getWidth() / 2, image1Bp.getHeight() / 2);
-        int color2 = image2Bp.getPixel(image2Bp.getWidth() / 2, image2Bp.getHeight() / 2);
+        int pixelsWidthHeight = 30;
 
-        int r1 = Color.red(color1), g1 = Color.green(color1), b1 = Color.blue(color1);
-        int r2 = Color.red(color2), g2 = Color.green(color2), b2 = Color.blue(color2);
+        // Will store average values for centermost pixels in each picture
+        // Squared sum used for more accurate color average
+        int r1 = 0;
+        int g1 = 0;
+        int b1 = 0;
+        int r2 = 0;
+        int g2 = 0;
+        int b2 = 0;
+
+        for (int i=-pixelsWidthHeight/2; i<pixelsWidthHeight/2 + 1; i++) {
+            for (int j=-pixelsWidthHeight/2; j<pixelsWidthHeight/2 + 1; j++) {
+                int color1 = image1Bp.getPixel((image1Bp.getWidth() / 2) + i, (image1Bp.getHeight() / 2) + j);
+                int color2 = image2Bp.getPixel((image2Bp.getWidth() / 2) + i, (image2Bp.getHeight() / 2) + j);
+
+                r1 += Color.red(color1) * Color.red(color1);
+                g1 += Color.green(color1) * Color.green(color1);
+                b1 += Color.blue(color1) * Color.blue(color1);
+
+                r2 += Color.red(color2) * Color.red(color2);
+                g2 += Color.green(color2) * Color.green(color2);
+                b2 += Color.blue(color2) * Color.blue(color2);
+            }
+        }
+
+        r1 = (int)Math.round(Math.sqrt(r1/(pixelsWidthHeight*pixelsWidthHeight)));
+        g1 = (int)Math.round(Math.sqrt(g1/(pixelsWidthHeight*pixelsWidthHeight)));
+        b1 = (int)Math.round(Math.sqrt(b1/(pixelsWidthHeight*pixelsWidthHeight)));
+
+        r2 = (int)Math.round(Math.sqrt(r2/(pixelsWidthHeight*pixelsWidthHeight)));
+        g2 = (int)Math.round(Math.sqrt(g2/(pixelsWidthHeight*pixelsWidthHeight)));
+        b2 = (int)Math.round(Math.sqrt(b2/(pixelsWidthHeight*pixelsWidthHeight)));
 
         double rBar = (r1 + r2) / 2.0;
-        double colorDifference = Math.sqrt(
-                (2 + rBar / 256) * Math.pow(r1 - r2, 2) +
-                        4 * Math.pow(g1 - g2, 2) +
-                        (2 + (255 - rBar) / 256) * Math.pow(b1 - b2, 2)
-        );
+        int rChange = r1 - r2;
+        int gChange = g1 - g2;
+        int bChange = b1 - b2;
 
-        int pointsEarned = (int) Math.round(764 - colorDifference);
+        double colorDifference = Math.sqrt((2 + (rBar/256)) * (rChange * rChange) + 4 * (gChange * gChange) + (2 + ((255 - rBar)/256)) * (bChange * bChange)); //redmean color difference equation
+        int pointsEarned = (int)Math.round(764.833966357 - colorDifference);
         if (playerTurn == 1) {
             gameRef.child("scores").child("player1").setValue(
                     Integer.parseInt(player1Score.getText().toString()) + pointsEarned
             );
+            points.setTextColor(getColor(R.color.blue));
         } else {
             gameRef.child("scores").child("player2").setValue(
                     Integer.parseInt(player2Score.getText().toString()) + pointsEarned
             );
+            points.setTextColor(getColor(R.color.red));
         }
 
         points.setVisibility(View.VISIBLE);
@@ -277,8 +340,6 @@ public class gameActivity extends AppCompatActivity {
     private void resetRound() {
         gameRef.child("images").child("image1").setValue("");
         gameRef.child("images").child("image2").setValue("");
-        image1.setImageBitmap(null);
-        image2.setImageBitmap(null);
         image1Bp = null;
         image2Bp = null;
     }
