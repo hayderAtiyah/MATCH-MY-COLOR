@@ -13,7 +13,7 @@ public class Game {
     public String player2;
     public Map<String, Object> gameState;
 
-    public Game() { } // Default constructor for Firebase
+    public Game() { }
 
     public Game(String gameId, String password, String player1, String player2) {
         this.gameId = gameId;
@@ -23,7 +23,6 @@ public class Game {
         this.gameState = new HashMap<>();
     }
 
-    // Save game to Firebase
     public void saveToFirebase() {
         DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference("games");
         dbRef.child(this.gameId).setValue(this)
@@ -31,7 +30,6 @@ public class Game {
                 .addOnFailureListener(e -> System.err.println("Error saving game: " + e.getMessage()));
     }
 
-    // Update game state (e.g., add player2)
     public void updatePlayer2(String player2) {
         this.player2 = player2;
         DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference("games").child(this.gameId);

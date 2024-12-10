@@ -51,34 +51,37 @@ public class createActivity extends AppCompatActivity {
         String gameId = gamesRef.push().getKey();
         assert gameId != null;
 
-        Game game = new Game(gameId, pass, "Player1", null); // Replace "Player1" dynamically if needed
-
         DatabaseReference gameRef = gamesRef.child(gameId);
-        gameRef.setValue(game)
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "Game Created! Share the password: " + pass, Toast.LENGTH_LONG).show();
-                    gameRef.onDisconnect().removeValue();
 
-                    // Listen for player2 being added
-                    gameRef.child("player2").addValueEventListener(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            if (dataSnapshot.exists()) {
-                                // Navigate to gameActivity when player2 is set
-                                Intent intent = new Intent(createActivity.this, gameActivity.class);
-                                intent.putExtra("gameId", gameId);
-                                startActivity(intent);
-                                finish();
-                            }
-                        }
+        gameRef.child("gameId").setValue(gameId);
+        gameRef.child("password").setValue(pass);
+        gameRef.child("player1").setValue("Waiting...");
+        gameRef.child("player2").setValue("Waiting...");
+        gameRef.child("playerTurn").setValue(1);
+        gameRef.child("round").setValue(0);
+        gameRef.child("scores/player1").setValue(0);
+        gameRef.child("scores/player2").setValue(0);
+        gameRef.child("images/image1").setValue("");
+        gameRef.child("images/image2").setValue("");
+        gameRef.child("executionCount").setValue(0);
+        gameRef.child("player2").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                String player2Status = dataSnapshot.getValue(String.class);
+                if (player2Status != null && !player2Status.equals("Waiting...")) {
+                    Intent intent = new Intent(createActivity.this, gameActivity.class);
+                    intent.putExtra("gameId", gameId);
+                    intent.putExtra("playerRole", 1); // Creator is Player 1
+                    startActivity(intent);
+                    finish();
+                }
+            }
 
-                        @Override
-                        public void onCancelled(DatabaseError databaseError) {
-                            Log.e("FirebaseError", "Failed to detect player2: " + databaseError.getMessage());
-                        }
-                    });
-                })
-                .addOnFailureListener(e -> Log.e("FirebaseError", "Failed to create game: " + e.getMessage()));
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Log.e("FirebaseError", "Failed to detect player2: " + databaseError.getMessage());
+            }
+        });
     }
 
     private String passWordGenertaed() {

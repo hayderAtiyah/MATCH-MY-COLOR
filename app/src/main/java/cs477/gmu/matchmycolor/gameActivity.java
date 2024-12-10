@@ -5,24 +5,22 @@ import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -30,36 +28,26 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.util.Random;
+import java.io.ByteArrayOutputStream;
 
 public class gameActivity extends AppCompatActivity {
+    private int playerRole;
     private int playerTurn;
     private int imageTurn;
-    private TextView player1Score;
-    private TextView player2Score;
-    private TextView player1Turn;
-    private TextView player2Turn;
-    private TextView points;
-    private ImageView image1;
-    private ImageView image2;
-    private Bitmap image1Bp;
-    private Bitmap image2Bp;
-
-    private int rounds = 3;
-    private int currRound;
+    private TextView player1Score, player2Score, player1Turn, player2Turn, points;
+    private ImageView image1, image2;
+    private Bitmap image1Bp, image2Bp;
+    private DatabaseReference gameRef;
+    private String gameId;
+    private final int maxRounds = 2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_game);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
 
-        String gameId = getIntent().getStringExtra("gameId");
+        gameId = getIntent().getStringExtra("gameId");
+        gameRef = FirebaseDatabase.getInstance().getReference("games").child(gameId);
 
         player1Score = findViewById(R.id.player1_score);
         player2Score = findViewById(R.id.player2_score);
@@ -68,184 +56,274 @@ public class gameActivity extends AppCompatActivity {
         points = findViewById(R.id.points);
         image1 = findViewById(R.id.image1);
         image2 = findViewById(R.id.image2);
-        currRound = 0;
 
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        DatabaseReference gameRef = database.getReference("games").child(gameId);
+        assignRole();
+        setupScoreListeners();
+        setupImageSyncListeners();
+        setupTurnListeners();
+        updateTurnUI();
+    }
 
-        gameRef.addValueEventListener(new ValueEventListener() {
+    private void assignRole() {
+        if (getIntent().hasExtra("playerRole")) {
+            playerRole = getIntent().getIntExtra("playerRole", 1);
+            Toast.makeText(this, "You are Player " + playerRole, Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Error assigning role. Restart the game.", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+    }
+
+    private void setupScoreListeners() {
+        gameRef.child("scores").addValueEventListener(new ValueEventListener() {
             @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    String player1 = dataSnapshot.child("player1").getValue(String.class);
-                    String player2 = dataSnapshot.child("player2").getValue(String.class);
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    int player1ScoreValue = snapshot.child("player1").getValue(Integer.class);
+                    int player2ScoreValue = snapshot.child("player2").getValue(Integer.class);
 
-                    if (playerTurn == 1) {
-                        player1Turn.setVisibility(View.VISIBLE);
-                        player2Turn.setVisibility(View.INVISIBLE);
-                    } else {
-                        player1Turn.setVisibility(View.INVISIBLE);
-                        player2Turn.setVisibility(View.VISIBLE);
+                    player1Score.setText(String.valueOf(player1ScoreValue));
+                    player2Score.setText(String.valueOf(player2ScoreValue));
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Toast.makeText(gameActivity.this, "Error syncing scores.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void setupImageSyncListeners() {
+        gameRef.child("images").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    boolean isImage1Ready = false;
+                    boolean isImage2Ready = false;
+
+                    if (snapshot.child("image1").exists() && !snapshot.child("image1").getValue(String.class).isEmpty()) {
+                        String image1Data = snapshot.child("image1").getValue(String.class);
+                        image1Bp = decodeBase64(image1Data);
+                        image1.setImageBitmap(image1Bp);
+                        isImage1Ready = true;
+                    }
+
+                    if (snapshot.child("image2").exists() && !snapshot.child("image2").getValue(String.class).isEmpty()) {
+                        String image2Data = snapshot.child("image2").getValue(String.class);
+                        image2Bp = decodeBase64(image2Data);
+                        image2.setImageBitmap(image2Bp);
+                        isImage2Ready = true;
+                    }
+
+                    if (isImage1Ready && isImage2Ready) {
+                        calculatePoints();
+                        resetRound();
+                        checkGameOver();
                     }
                 }
             }
 
             @Override
-            public void onCancelled(DatabaseError databaseError) {
-                Toast.makeText(gameActivity.this, "Failed to load game data", Toast.LENGTH_SHORT).show();
+            public void onCancelled(DatabaseError error) {
+                Toast.makeText(gameActivity.this, "Error syncing images.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
 
-        Random rand = new Random();
-        playerTurn = rand.nextInt(2) + 1;
+    private void setupTurnListeners() {
+        gameRef.child("playerTurn").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    playerTurn = snapshot.getValue(Integer.class);
+                    updateTurnUI();
+                }
+            }
 
-        if (playerTurn == 1) {
-            player2Turn.setVisibility(View.INVISIBLE);
-        } else {
-            player1Turn.setVisibility(View.INVISIBLE);
-        }
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Toast.makeText(gameActivity.this, "Error syncing turn.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     public void cameraButton(View v) {
+        if (playerRole != playerTurn) {
+            Toast.makeText(this, "Wait for your turn!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        Toast.makeText(getApplicationContext(),"Opening camera",Toast.LENGTH_SHORT).show();
         try {
-
             myActivityResultLauncher.launch(takePictureIntent);
-
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(getApplicationContext(),"failed",Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Camera unavailable.", Toast.LENGTH_SHORT).show();
         }
     }
 
-    ActivityResultLauncher<Intent>
-            myActivityResultLauncher = registerForActivityResult(
+    ActivityResultLauncher<Intent> myActivityResultLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             new ActivityResultCallback<ActivityResult>() {
                 @Override
                 public void onActivityResult(ActivityResult result) {
                     if (result.getResultCode() == Activity.RESULT_OK) {
-                        Intent data = result.getData();
-                        Bitmap bp = (Bitmap) data.getExtras().get("data");
-
-                        if (bp == null) {
-                            Toast.makeText(getApplicationContext(), "Game Created! Share the password: " , Toast.LENGTH_LONG).show();
-                            return;
-                        }
+                        Bitmap bp = (Bitmap) result.getData().getExtras().get("data");
 
                         if (playerTurn == 1) {
-                            if (imageTurn == 1) {
-                                image1.setImageBitmap(bp);
-                                image2.setImageDrawable(getDrawable(R.drawable.camera_icon));
-                                image1Bp = bp;
-                                imageTurn = 2;
-                                playerTurn = 2;
-                                player1Turn.setVisibility(View.INVISIBLE);
-                                player2Turn.setVisibility(View.VISIBLE);
-                                points.setVisibility(View.INVISIBLE);
-                            } else {
-                                image2.setImageBitmap(bp);
-                                image2Bp = bp;
-                                imageTurn = 1;
-                                points.setTextColor(getColor(R.color.blue));
-                                calculatePoints();
-                                checkGameOver();
-                            }
+                            gameRef.child("images").child("image1").setValue(encodeBitmap(bp))
+                                    .addOnSuccessListener(aVoid -> {
+                                        image1Bp = bp;
+                                        image1.setImageBitmap(bp);
+                                        gameRef.child("playerTurn").setValue(2);
+                                    })
+                                    .addOnFailureListener(e ->
+                                            Toast.makeText(gameActivity.this, "Failed to upload Image 1.", Toast.LENGTH_SHORT).show());
                         } else {
-                            if (imageTurn == 1) {
-                                image1.setImageBitmap(bp);
-                                image2.setImageDrawable(getDrawable(R.drawable.camera_icon));
-                                image1Bp = bp;
-                                imageTurn = 2;
-                                playerTurn = 1;
-                                player1Turn.setVisibility(View.VISIBLE);
-                                player2Turn.setVisibility(View.INVISIBLE);
-                                points.setVisibility(View.INVISIBLE);
-                            } else {
-                                image2.setImageBitmap(bp);
-                                image2Bp = bp;
-                                imageTurn = 1;
-                                points.setTextColor(getColor(R.color.red));
-                                calculatePoints();
-                                checkGameOver();
-                            }
+                            gameRef.child("images").child("image2").setValue(encodeBitmap(bp))
+                                    .addOnSuccessListener(aVoid -> {
+                                        image2Bp = bp;
+                                        image2.setImageBitmap(bp);
+
+                                        gameRef.child("executionCount").addListenerForSingleValueEvent(new ValueEventListener() {
+                                            @Override
+                                            public void onDataChange(DataSnapshot snapshot) {
+                                                int executionCount = snapshot.exists() ? snapshot.getValue(Integer.class) : 0;
+
+                                                if (executionCount < 1) {
+                                                    gameRef.child("executionCount").setValue(executionCount + 1);
+                                                } else {
+                                                    gameRef.child("executionCount").setValue(0);
+                                                    gameRef.child("playerTurn").setValue(1);
+                                                }
+
+                                                gameRef.child("round").addListenerForSingleValueEvent(new ValueEventListener() {
+                                                    @Override
+                                                    public void onDataChange(DataSnapshot roundSnapshot) {
+                                                        int currentRound = roundSnapshot.exists() ? roundSnapshot.getValue(Integer.class) : 0;
+                                                        gameRef.child("round").setValue(currentRound + 1);
+
+                                                    }
+
+                                                    @Override
+                                                    public void onCancelled(DatabaseError error) {
+                                                        Toast.makeText(gameActivity.this, "Error updating round.", Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
+                                            }
+
+                                            @Override
+                                            public void onCancelled(DatabaseError error) {
+                                                Toast.makeText(gameActivity.this, "Error reading execution count.", Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
+                                    })
+                                    .addOnFailureListener(e ->
+                                            Toast.makeText(gameActivity.this, "Failed to upload Image 2.", Toast.LENGTH_SHORT).show());
                         }
                     } else {
-                        Toast.makeText(getApplicationContext(), "Please take picture.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "No image captured.", Toast.LENGTH_SHORT).show();
                     }
                 }
+            }
+    );
 
-            });
 
-    public void calculatePoints() {
+    private String encodeBitmap(Bitmap bitmap) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+        return Base64.encodeToString(baos.toByteArray(), Base64.DEFAULT);
+    }
+
+    private Bitmap decodeBase64(String base64String) {
+        byte[] decodedBytes = Base64.decode(base64String, Base64.DEFAULT);
+        return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+    }
+
+    private void calculatePoints() {
         if (image1Bp == null || image2Bp == null) {
-            Toast.makeText(this, "Error: Missing image data. Please ensure both players take their turns.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Images are not ready for comparison.", Toast.LENGTH_SHORT).show();
             return;
         }
 
         int color1 = image1Bp.getPixel(image1Bp.getWidth() / 2, image1Bp.getHeight() / 2);
         int color2 = image2Bp.getPixel(image2Bp.getWidth() / 2, image2Bp.getHeight() / 2);
 
-        int r1 = Color.red(color1);
-        int g1 = Color.green(color1);
-        int b1 = Color.blue(color1);
-
-        int r2 = Color.red(color2);
-        int g2 = Color.green(color2);
-        int b2 = Color.blue(color2);
+        int r1 = Color.red(color1), g1 = Color.green(color1), b1 = Color.blue(color1);
+        int r2 = Color.red(color2), g2 = Color.green(color2), b2 = Color.blue(color2);
 
         double rBar = (r1 + r2) / 2.0;
-        int rChange = r1 - r2;
-        int gChange = g1 - g2;
-        int bChange = b1 - b2;
+        double colorDifference = Math.sqrt(
+                (2 + rBar / 256) * Math.pow(r1 - r2, 2) +
+                        4 * Math.pow(g1 - g2, 2) +
+                        (2 + (255 - rBar) / 256) * Math.pow(b1 - b2, 2)
+        );
 
-        double colorChange = Math.sqrt((2 + (rBar / 256)) * (rChange * rChange) + 4 * (gChange * gChange) +
-                (2 + ((255 - rBar) / 256)) * (bChange * bChange));
-        int colorChangeInt = (int) Math.round(764.833966357 - colorChange);
-
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        DatabaseReference gameRef = database.getReference("games").child(getIntent().getStringExtra("gameId"));
-
+        int pointsEarned = (int) Math.round(764 - colorDifference);
         if (playerTurn == 1) {
-            int newScore = Integer.parseInt(player1Score.getText().toString()) + colorChangeInt;
-            gameRef.child("gameState").child("player1Score").setValue(newScore);
-            player1Score.setText(String.valueOf(newScore));
+            gameRef.child("scores").child("player1").setValue(
+                    Integer.parseInt(player1Score.getText().toString()) + pointsEarned
+            );
         } else {
-            int newScore = Integer.parseInt(player2Score.getText().toString()) + colorChangeInt;
-            gameRef.child("gameState").child("player2Score").setValue(newScore);
-            player2Score.setText(String.valueOf(newScore));
+            gameRef.child("scores").child("player2").setValue(
+                    Integer.parseInt(player2Score.getText().toString()) + pointsEarned
+            );
         }
 
         points.setVisibility(View.VISIBLE);
-        points.setText("+" + colorChangeInt);
+        points.setText("+" + pointsEarned);
+    }
+
+    private void resetRound() {
+        gameRef.child("images").child("image1").setValue("");
+        gameRef.child("images").child("image2").setValue("");
+        image1.setImageBitmap(null);
+        image2.setImageBitmap(null);
+        image1Bp = null;
+        image2Bp = null;
+    }
+
+    private void checkGameOver() {
+        gameRef.child("round").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                int currentRound = snapshot.exists() ? snapshot.getValue(Integer.class) : 0;
+                if (currentRound >= maxRounds) {
+                    String winner;
+                    int player1ScoreValue = Integer.parseInt(player1Score.getText().toString());
+                    int player2ScoreValue = Integer.parseInt(player2Score.getText().toString());
+
+                    if (player1ScoreValue > player2ScoreValue) {
+                        winner = "Player 1 wins!";
+                    } else if (player1ScoreValue < player2ScoreValue) {
+                        winner = "Player 2 wins!";
+                    } else {
+                        winner = "It's a draw!";
+                    }
+
+                    new AlertDialog.Builder(gameActivity.this)
+                            .setTitle("Game Over")
+                            .setMessage(winner)
+                            .setPositiveButton("OK", (dialog, which) -> finish())
+                            .show();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Toast.makeText(gameActivity.this, "Error checking game over.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
 
-    public void checkGameOver() {
-        currRound++;
-        if (rounds*2 == currRound) {
-            String message;
-            if (Integer.parseInt(player1Score.getText().toString()) > Integer.parseInt(player2Score.getText().toString())) {
-                message = "Player 1 wins! Would you like to play again?";
-            } else if (Integer.parseInt(player1Score.getText().toString()) < Integer.parseInt(player2Score.getText().toString())) {
-                message = "Player 2 wins! Would you like to play again?";
-            } else {
-                message = "It's a draw! Would you like to play again?";
-            }
-
-            AlertDialog.Builder dialog = new AlertDialog.Builder(gameActivity.this);
-            dialog.setTitle("Game Over")
-                    .setIcon(R.drawable.ic_launcher_background)
-                    .setMessage(message)
-                    .setNegativeButton("No", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialoginterface, int i) {
-                            finish();
-                        }})
-                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialoginterface, int i) {
-                            recreate();
-                        }
-                    }).show();
+    private void updateTurnUI() {
+        if (playerTurn == 1) {
+            player1Turn.setVisibility(View.VISIBLE);
+            player2Turn.setVisibility(View.INVISIBLE);
+        } else {
+            player1Turn.setVisibility(View.INVISIBLE);
+            player2Turn.setVisibility(View.VISIBLE);
         }
     }
 }
